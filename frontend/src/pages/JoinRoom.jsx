@@ -3,13 +3,20 @@ import { useNavigate } from 'react-router-dom';
 import { Users, ArrowRight } from 'lucide-react';
 import { motion } from 'framer-motion';
 
+/**
+ * JoinRoom — Simple form page that accepts a room code and navigates to the
+ * corresponding sprint room route (`/room/:code`). Uses Framer Motion for a
+ * subtle entrance animation. Purely frontend; no backend validation.
+ */
 const JoinRoom = () => {
   const [code, setCode] = useState('');
   const navigate = useNavigate();
 
   const handleJoin = (e) => {
     e.preventDefault();
-    if (code.trim()) navigate(`/room/${code.trim()}`);
+    const trimmed = code.trim();
+    if (!trimmed) return;
+    navigate(`/room/${trimmed}`);
   };
 
   return (

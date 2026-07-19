@@ -1,6 +1,11 @@
 import React, { useState } from 'react';
 import { Upload, FileText, Image, Download, Trash2 } from 'lucide-react';
 
+/**
+ * Files — Displays a table of uploaded files with columns for name, uploader,
+ * size, and time. Supports inline delete (local state only). The "Upload"
+ * button and "Download" action are presentational. Frontend-only UI prototype.
+ */
 const initialFiles = [
   { id: 1, name: 'Sprint_Report_Q3.pdf', type: 'pdf', uploadedBy: 'Alice K.', size: '2.4 MB', time: '2 hours ago' },
   { id: 2, name: 'Mockup_Homepage_v2.png', type: 'image', uploadedBy: 'Bob L.', size: '4.1 MB', time: '5 hours ago' },
@@ -10,10 +15,16 @@ const initialFiles = [
   { id: 6, name: 'Presentation_Deck.pptx', type: 'ppt', uploadedBy: 'Frank T.', size: '5.9 MB', time: '5 days ago' },
 ];
 
+/* Maps a file type string to the corresponding Lucide icon + colour.
+   Every case returns a fragment-sized icon that sits beside the file name in the table. */
 const getIcon = (type) => {
   switch (type) {
     case 'image': return <Image size={18} className="text-blue-500 shrink-0" />;
-    default: return <FileText size={18} className="text-brand shrink-0" />;
+    case 'pdf':   return <FileText size={18} className="text-red-500 shrink-0" />;
+    case 'doc':   return <FileText size={18} className="text-blue-600 shrink-0" />;
+    case 'text':  return <FileText size={18} className="text-gray-500 shrink-0" />;
+    case 'ppt':   return <FileText size={18} className="text-orange-500 shrink-0" />;
+    default:      return <FileText size={18} className="text-brand shrink-0" />;
   }
 };
 
@@ -36,6 +47,8 @@ const Files = () => {
         </button>
       </div>
 
+      {/* Table layout: five columns — Name (with icon), Uploaded By, Size, Time, Actions.
+           Rows are generated from the `files` state array. The delete button fades in on row hover. */}
       <div className="card p-0 overflow-hidden">
         <table className="w-full text-sm">
           <thead>
@@ -52,6 +65,7 @@ const Files = () => {
               <tr key={file.id} className="border-b border-border last:border-0 hover:bg-bg-secondary/50 transition-colors group">
                 <td className="px-5 py-4">
                   <div className="flex items-center gap-3">
+                    {/* Type-based icon rendered by getIcon(), followed by the raw file name */}
                     {getIcon(file.type)}
                     <span className="font-medium text-gray-900">{file.name}</span>
                   </div>

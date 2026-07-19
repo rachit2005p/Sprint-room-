@@ -2,16 +2,19 @@ import Message from '../models/Message.js';
 import { isMemoryDb } from '../config/db.js';
 import { memoryStore } from '../services/memoryStore.js';
 
+// Helper: save a message to either the in-memory store or MongoDB depending on the database mode
 const createMessage = (message) => (
   isMemoryDb() ? memoryStore.createMessage(message) : Message.create(message)
 );
 
 export const setupSocketHandlers = (io) => {
+  // Track online users per room (keyed by roomId)
   const onlineUsers = {};
 
   io.on('connection', (socket) => {
     console.log(`New client connected: ${socket.id}`);
 
+    // join_room: User joins a socket room and is added to the online users list
     socket.on('join_room', ({ roomId, user }) => {
       socket.join(roomId);
       
@@ -28,6 +31,7 @@ export const setupSocketHandlers = (io) => {
       console.log(`User ${user.username} joined room ${roomId}`);
     });
 
+    // send_message: Persists a chat message (text, audio, file) and broadcasts it to the room
     socket.on('send_message', async ({
       roomId,
       senderId,
@@ -75,11 +79,12 @@ export const setupSocketHandlers = (io) => {
       }
     });
 
-    // Media Share Request/Approve/Deny (images, audio — non-admin must ask admin)
+    // media_share_request: Non-admin user requests permission to share media (image/audio) in the room
     socket.on('media_share_request', ({ roomId, senderId, username, messageType, fileData, fileName, fileMime, audioData }) => {
       socket.to(roomId).emit('media_share_requested', { senderId, username, messageType, fileData, fileName, fileMime, audioData, requesterSocketId: socket.id });
     });
 
+    // media_share_approve: Admin approves the media share request; saves the message and notifies the requester
     socket.on('media_share_approve', async ({ roomId, requesterSocketId, senderId, username, messageType, fileData, fileName, fileMime, audioData }) => {
       try {
         const msg = await createMessage({
@@ -115,10 +120,12 @@ export const setupSocketHandlers = (io) => {
       }
     });
 
+    // media_share_deny: Admin denies the media share request
     socket.on('media_share_deny', ({ roomId, requesterSocketId }) => {
       io.to(requesterSocketId).emit('media_share_denied');
     });
 
+    // delete_message: Removes a message (only by its sender) from the database and broadcasts the deletion
     socket.on('delete_message', async ({ roomId, messageId, senderId }) => {
       try {
         if (isMemoryDb()) {
@@ -135,21 +142,27 @@ export const setupSocketHandlers = (io) => {
       }
     });
 
+    // typing: Broadcasts to the room (excluding sender) that a user is typing
     socket.on('typing', ({ roomId, username }) => {
       socket.to(roomId).emit('typing', { username });
     });
 
+    // stop_typing: Broadcasts to the room (excluding sender) that a user has stopped typing
     socket.on('stop_typing', ({ roomId, username }) => {
       socket.to(roomId).emit('stop_typing', { username });
     });
 
+    // room_ended: Immediately terminates a room, kicking all sockets and clearing the online user list
     socket.on('room_ended', ({ roomId }) => {
       io.to(roomId).emit('room_ended');
       io.sockets.in(roomId).socketsLeave(roomId);
       delete onlineUsers[roomId];
     });
 
-    // Admin timer control: extend/decrease expires_at
+    // extend_room_timer: Admin/creator adjusts the room's expiration time by ±delta_minutes
+    //   Positive values extend the room, negative values shorten it.
+    //   Clamped to ±12 hours per adjustment and total capped at 24 hours from now.
+    //   If the timer drops to <= 0 the room is ended immediately and all data is cleaned up.
     socket.on('extend_room_timer', async ({ roomId, delta_minutes, user }) => {
       try {
         console.log('extend_room_timer received', { roomId, delta_minutes, userId: user?.id, username: user?.username });
@@ -224,12 +237,13 @@ export const setupSocketHandlers = (io) => {
     });
 
 
-    // PPT Presentation Events
+    // request_presentation: A user requests to start a PowerPoint presentation in the room
     socket.on('request_presentation', ({ roomId, senderId, username, fileName, fileData }) => {
       console.log('request_presentation received', { roomId, senderId, username, fileName });
       io.to(roomId).emit('presentation_requested', { senderId, username, fileName, fileData });
     });
 
+    // approve_presentation: Admin approves the presentation request; saves a chat message and broadcasts the file to all users
     socket.on('approve_presentation', async ({ roomId, presenterId, presenterName, fileName, fileData }) => {
       try {
         console.log('approve_presentation received', { roomId, presenterId, presenterName, fileName });
@@ -270,59 +284,70 @@ export const setupSocketHandlers = (io) => {
       }
     });
 
+    // deny_presentation: Admin denies the presentation request
     socket.on('deny_presentation', ({ roomId, presenterId }) => {
       console.log('deny_presentation received', { roomId, presenterId });
       io.to(roomId).emit('presentation_denied', { presenterId });
     });
 
+    // change_slide: Presenter navigates to a specific slide number; broadcast to the room
     socket.on('change_slide', ({ roomId, slideNumber }) => {
       io.to(roomId).emit('slide_changed', { slideNumber });
     });
 
+    // stop_presentation: Presenter ends the presentation; closes the viewer on all clients
     socket.on('stop_presentation', ({ roomId }) => {
       console.log('stop_presentation received', { roomId });
       io.to(roomId).emit('presentation_stopped');
     });
 
+    // add_image_to_presentation: Presenter inserts an image into the live presentation
     socket.on('add_image_to_presentation', ({ roomId, fileName, fileData }) => {
       console.log('add_image_to_presentation received', { roomId, fileName: fileName?.substring(0, 30) });
       io.to(roomId).emit('presentation_image_added', { fileName, fileData });
     });
 
-    // Screen Sharing Permission Flow
+    // screen_share_request: A user requests permission to start screen sharing
     socket.on('screen_share_request', ({ roomId, userId, username }) => {
       socket.to(roomId).emit('screen_share_requested', { userId, username, requesterSocketId: socket.id });
     });
 
+    // screen_share_approve: Admin approves the screen share request
     socket.on('screen_share_approve', ({ roomId, requesterSocketId }) => {
       io.to(requesterSocketId).emit('screen_share_approved');
     });
 
+    // screen_share_deny: Admin denies the screen share request
     socket.on('screen_share_deny', ({ roomId, requesterSocketId }) => {
       io.to(requesterSocketId).emit('screen_share_denied');
     });
 
-    // Screen Sharing Events (WebRTC signaling)
+    // screen_share_start: Notifies the room that a user has started sharing their screen
     socket.on('screen_share_start', ({ roomId, userId, username }) => {
       socket.to(roomId).emit('screen_share_started', { userId, username });
     });
 
+    // screen_share_offer: Forwards a WebRTC offer from the sharer to the target viewer
     socket.on('screen_share_offer', ({ roomId, offer, targetSocketId }) => {
       socket.to(targetSocketId).emit('screen_share_offer', { offer, senderSocketId: socket.id });
     });
 
+    // screen_share_answer: Forwards a WebRTC answer from the viewer back to the sharer
     socket.on('screen_share_answer', ({ roomId, answer, targetSocketId }) => {
       socket.to(targetSocketId).emit('screen_share_answer', { answer, senderSocketId: socket.id });
     });
 
+    // screen_share_ice_candidate: Forwards an ICE candidate between peers for WebRTC connection setup
     socket.on('screen_share_ice_candidate', ({ roomId, candidate, targetSocketId }) => {
       socket.to(targetSocketId).emit('screen_share_ice_candidate', { candidate, senderSocketId: socket.id });
     });
 
+    // screen_share_stop: Notifies the room that the screen share has ended
     socket.on('screen_share_stop', ({ roomId }) => {
       socket.to(roomId).emit('screen_share_stopped', { socketId: socket.id });
     });
 
+    // disconnect: Clean up — remove the user from all online user lists and notify each room
     socket.on('disconnect', () => {
       console.log(`Client disconnected: ${socket.id}`);
       for (const roomId in onlineUsers) {

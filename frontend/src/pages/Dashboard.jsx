@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Plus, Clock, Users, ChevronRight, Lock, Sparkles, X, ArrowRight } from 'lucide-react';
 import api from '../services/api';
 
+// Dashboard — protected page listing active sprint rooms, with create and join functionality
 const Dashboard = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -24,37 +25,53 @@ const Dashboard = () => {
     password: '',
   });
 
+  // Fetch rooms on mount — loads the user's active sprint rooms from the API
   useEffect(() => {
     fetchRooms();
   }, []);
 
+  // GET /rooms — retrieves all active sprint rooms for the current user
+  // Steps: request → store in state → handle failure silently → clear loading flag
   const fetchRooms = async () => {
     try {
+      // Step 1 — hit the rooms endpoint
       const res = await api.get('/rooms');
+      // Step 2 — save the room list into state
       setRooms(res.data);
     } catch (err) {
+      // Step 3 — log failures without blocking the UI
       console.error('Failed to fetch rooms:', err);
     }
+    // Step 4 — always clear the loading spinner
     setLoading(false);
   };
 
+  // Create room — POST /rooms/create with form data, then navigate into the new room
   const handleCreateRoom = async (e) => {
+    // Step 1 — prevent default form submission
     e.preventDefault();
+    // Step 2 — build payload, enforcing a minimum 5-minute duration
     const payload = {
       ...form,
       expires_in_minutes: Math.max(5, Number(form.expires_in_minutes) || 5)
     };
     try {
+      // Step 3 — send the creation request
       const res = await api.post('/rooms/create', payload);
+      // Step 4 — close the create modal and reset the form
       setShowCreateModal(false);
       setForm({ room_name: '', agenda: '', description: '', expires_in_minutes: '', password: '' });
+      // Step 5 — navigate into the newly created room
       navigate(`/room/${res.data.id}`);
     } catch (err) {
+      // Step 6 — log creation failures
       console.error('Create room error:', err);
     }
   };
 
+  // Join room — attempts POST /rooms/join; if the room is private, opens the password modal
   const handleJoinRoom = async (roomId, needsPassword = false) => {
+    // Step 1 — if the caller already knows the room is private, skip straight to the password prompt
     if (needsPassword) {
       setJoinRoomId(roomId);
       setJoinPassword('');
@@ -62,49 +79,73 @@ const Dashboard = () => {
       setShowJoinModal(true);
       return;
     }
+    // Step 2 — attempt a password-less join
     try {
       await api.post('/rooms/join', { room_id: roomId });
+      // Step 3 — on success, navigate into the room
       navigate(`/room/${roomId}`);
     } catch (err) {
+      // Step 4 — if the server says a password is required, open the modal
       if (err.response?.data?.requires_password) {
         setJoinRoomId(roomId);
         setJoinPassword('');
         setJoinError('');
         setShowJoinModal(true);
       } else {
+        // Step 5 — otherwise log the error
         console.error('Join room error:', err);
       }
     }
   };
 
+  // Submit password for a private room — POST /rooms/join with room_id + password, then navigate in
   const handleJoinSubmit = async (e) => {
+    // Step 1 — prevent default form submission
     e.preventDefault();
     try {
+      // Step 2 — send join request with the entered password
       await api.post('/rooms/join', { room_id: joinRoomId, password: joinPassword });
+      // Step 3 — close modal and enter the room
       setShowJoinModal(false);
       navigate(`/room/${joinRoomId}`);
     } catch (err) {
+      // Step 4 — display the server's error message (or a generic fallback)
       setJoinError(err.response?.data?.msg || 'Failed to join room');
     }
   };
 
+  // Helper — formats an expiration timestamp into "M:SS" remaining string
   const formatTimeLeft = (expiresAt) => {
+    // Step 1 — bail out if there's no expiration date
     if (!expiresAt) return null;
+    // Step 2 — calculate the difference between now and the expiration
     const diff = new Date(expiresAt).getTime() - Date.now();
+    // Step 3 — if time is up, return a literal "Ending"
     if (diff <= 0) return 'Ending';
+    // Step 4 — extract whole minutes
     const mins = Math.floor(diff / 60000);
+    // Step 5 — extract remaining seconds (0-59)
     const secs = Math.floor((diff % 60000) / 1000);
+    // Step 6 — format as "M:SS" with zero-padded seconds
     return `${mins}:${String(secs).padStart(2, '0')}`;
   };
 
+  // Helper — cycles through a palette of background colors for room cards
   const cardBg = (i) => {
-    const colors = ['bg-brand-light', 'bg-secondary', 'bg-brand-badge', 'bg-secondary', 'bg-brand-light'];
+    // Five-color repeating palette: green tint, off-white, light green, off-white, green tint
+    const colors = [
+      'bg-brand-light', // light green
+      'bg-secondary',   // off-white / subtle gray
+      'bg-brand-badge', // very light green
+      'bg-secondary',   // off-white / subtle gray
+      'bg-brand-light', // light green (wrap-around)
+    ];
     return colors[i % colors.length];
   };
 
   return (
     <div className="space-y-8">
-      {/* Header */}
+      {/* Header — welcome message and "New Sprint" button */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="section-title text-2xl">Dashboard</h1>
@@ -115,7 +156,7 @@ const Dashboard = () => {
         </button>
       </div>
 
-      {/* Sprint Cards */}
+      {/* Sprint rooms — shows loading state, empty state (with prompt to create first room), or a card grid */}
       {loading ? (
         <div className="text-center py-16 text-gray-400 text-sm">Loading rooms...</div>
       ) : rooms.length === 0 ? (
@@ -176,7 +217,7 @@ const Dashboard = () => {
         </div>
       )}
 
-      {/* Recent Rooms */}
+      {/* Recent Rooms — tabular list view of up to 10 rooms with creator name, participant count, and time left */}
       {rooms.length > 0 && (
         <div>
           <h2 className="section-title mb-4">All Active Rooms</h2>
@@ -204,7 +245,10 @@ const Dashboard = () => {
         </div>
       )}
 
-      {/* Create Room Modal */}
+      {/* ═══════════════════════════════════════════════════════════════
+          MODAL 1: CREATE SPRINT ROOM
+          ═══════════════════════════════════════════════════════════════ */}
+      {/* Create Room Modal — overlay form for room name, agenda, description, duration, and optional password */}
       <AnimatePresence>
         {showCreateModal && (
           <div className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-50 p-4">
@@ -253,7 +297,10 @@ const Dashboard = () => {
         )}
       </AnimatePresence>
 
-      {/* Join Password Modal */}
+      {/* ═══════════════════════════════════════════════════════════════
+          MODAL 2: JOIN PRIVATE ROOM (PASSWORD)
+          ═══════════════════════════════════════════════════════════════ */}
+      {/* Join Password Modal — prompts for a password when trying to enter a private room */}
       <AnimatePresence>
         {showJoinModal && (
           <div className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-50 p-4">

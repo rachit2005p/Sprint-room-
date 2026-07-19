@@ -1,6 +1,12 @@
 import React, { useState } from 'react';
 import { Settings, Bell, Shield, CreditCard, Puzzle, Code2, MessageSquare, ExternalLink, Check } from 'lucide-react';
 
+/**
+ * Settings — Tabbed settings page with five sections: General, Notifications,
+ * Privacy, Billing, and Integrations. Each tab renders its own content inline
+ * via a switch statement. Toggles, selects, and buttons manage local state
+ * only; no data is persisted. Frontend-only UI prototype.
+ */
 const tabs = [
   { id: 'general', label: 'General', icon: Settings },
   { id: 'notifications', label: 'Notifications', icon: Bell },
@@ -30,6 +36,9 @@ const integrations = [
   },
 ];
 
+/* Reusable toggle switch built with a hidden checkbox (<input className="sr-only"/>) + an adjacent
+   visual thumb/track styled via peer check. The label is clickable and wraps both the text and the
+   switch control. When checked the brand colour fills the track and the white thumb slides right. */
 const Toggle = ({ checked, onChange, label, description }) => (
   <label className="flex items-center justify-between py-4 border-b border-border last:border-b-0">
     <div>
@@ -59,6 +68,7 @@ const SettingsPage = () => {
 
   const renderContent = () => {
     switch (activeTab) {
+      /* ——— General ——— */
       case 'general':
         return (
           <div className="space-y-8">
@@ -107,6 +117,7 @@ const SettingsPage = () => {
           </div>
         );
 
+      /* ——— Notifications ——— */
       case 'notifications':
         return (
           <div>
@@ -141,6 +152,7 @@ const SettingsPage = () => {
           </div>
         );
 
+      /* ——— Privacy ——— */
       case 'privacy':
         return (
           <div>
@@ -169,6 +181,7 @@ const SettingsPage = () => {
           </div>
         );
 
+      /* ——— Billing ——— */
       case 'billing':
         return (
           <div>
@@ -194,6 +207,7 @@ const SettingsPage = () => {
           </div>
         );
 
+      /* ——— Integrations ——— */
       case 'integrations':
         return (
           <div>

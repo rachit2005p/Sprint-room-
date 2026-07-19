@@ -1,9 +1,17 @@
+/* ──────────────────────────────────────────────
+   Global styles — Tailwind setup, custom component
+   classes, and scrollbar styling
+   ────────────────────────────────────────────── */
+
+/* Google Font: Inter (weights 400–800) */
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
 
+/* Tailwind directives */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
+/* ── Base element defaults ── */
 @layer base {
   body {
     @apply bg-bg text-gray-800 antialiased selection:bg-brand selection:text-white;
@@ -15,53 +23,75 @@
   }
 }
 
+/* ── Reusable utility components (compose with Tailwind utility classes) ── */
 @layer components {
+
+  /* ── Frosted-glass panel ────────────────────────────────
+       Semi-transparent blur backdrop used for overlays,
+       modals, and hero sections. */
   .glass-panel {
     @apply backdrop-blur-xl border border-white/5 rounded-2xl;
     background-image: linear-gradient(145deg, rgba(20, 28, 47, 0.4) 0%, rgba(11, 17, 33, 0.4) 100%);
     box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
   }
 
+  /* ── Button variants ─────────────────────────────────── */
+
+  /* Primary (brand) — solid green call-to-action */
   .btn-primary {
     @apply bg-brand hover:bg-brand-hover text-white font-semibold py-2.5 px-5 rounded-btn transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center;
   }
 
+  /* Secondary (outlined) — white background with border */
   .btn-secondary {
     @apply bg-white hover:bg-gray-50 text-gray-700 font-medium py-2.5 px-5 rounded-btn transition-all duration-200 border border-border hover:border-gray-300 flex items-center justify-center;
   }
 
+  /* Ghost / text-only — no background, minimal hover */
   .btn-ghost {
     @apply text-gray-600 hover:text-gray-900 hover:bg-gray-100 font-medium py-2 px-3 rounded-btn transition-all duration-200;
   }
 
+  /* ── Form input ──────────────────────────────────────── */
   .input-field {
     @apply w-full bg-white border border-border rounded-input px-4 py-3 text-gray-800 focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand transition-all placeholder:text-gray-400 text-sm;
   }
 
+  /* ── Card containers ─────────────────────────────────── */
+
+  /* Plain card with border and padding */
   .card {
     @apply bg-bg-card border border-border rounded-card p-6 transition-all duration-200;
   }
 
+  /* Card that lifts slightly on hover */
   .card-hover {
     @apply card hover:shadow-soft hover:-translate-y-0.5;
   }
 
+  /* ── Status / category badges ────────────────────────── */
+
+  /* Green badge (e.g. "Active", "Completed") */
   .badge-green {
     @apply bg-brand-badge text-brand text-xs font-semibold px-2.5 py-1 rounded-full;
   }
 
+  /* Pink badge (e.g. "Urgent", "High priority") */
   .badge-pink {
     @apply bg-pink-50 text-pink-600 text-xs font-semibold px-2.5 py-1 rounded-full;
   }
 
+  /* Blue badge (e.g. "Info", "In-progress") */
   .badge-blue {
     @apply bg-blue-50 text-blue-600 text-xs font-semibold px-2.5 py-1 rounded-full;
   }
 
+  /* Orange badge (e.g. "Warning", "Pending") */
   .badge-orange {
     @apply bg-orange-50 text-orange-600 text-xs font-semibold px-2.5 py-1 rounded-full;
   }
 
+  /* ── Section headings ────────────────────────────────── */
   .section-title {
     @apply text-lg font-bold text-gray-900;
   }
@@ -71,6 +101,7 @@
   }
 }
 
+/* ── Custom scrollbar (WebKit browsers) ── */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;

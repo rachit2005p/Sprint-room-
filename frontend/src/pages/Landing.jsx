@@ -3,15 +3,22 @@ import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Users, Trash2, Zap, Shield, EyeOff, ArrowRight, Star, ChevronRight, Globe, MessageCircle, Briefcase } from 'lucide-react';
 
+// Navigation links rendered in the sticky top bar
 const navLinks = ['Features', 'How It Works', 'Pricing', 'Resources'];
 
+// Reusable scroll-triggered fade-up animation preset (used across sections)
 const fadeUp = (delay = 0) => ({
+  // Start invisible and shifted down 28px
   initial: { opacity: 0, y: 28 },
+  // Animate to fully visible at original position
   whileInView: { opacity: 1, y: 0 },
+  // Trigger only once; fire when 60px of the element is visible
   viewport: { once: true, margin: '-60px' },
+  // Ease-out over 550ms with optional per-instance delay
   transition: { duration: 0.55, ease: 'easeOut', delay },
 });
 
+// Core feature cards displayed in the features grid section
 const features = [
   { icon: Trash2, title: 'Ephemeral by Default', desc: 'Rooms, messages, files — everything is permanently deleted when the sprint ends. No digital clutter.' },
   { icon: EyeOff, title: 'Distraction Free', desc: 'No notifications, no history, no noise. Just you, your team, and the current sprint.' },
@@ -19,20 +26,23 @@ const features = [
   { icon: Shield, title: 'Private & Secure', desc: 'Password-protected rooms, JWT auth, and end-to-end encrypted sessions.' },
 ];
 
+// Three-step walkthrough explaining the sprint lifecycle (create → collaborate → delete)
 const steps = [
   { num: '01', title: 'Create a Room', desc: 'Set an agenda, an optional timer, and a password. Share the room code with your team.' },
   { num: '02', title: 'Collaborate Live', desc: 'Chat, share ideas, and solve problems in a clean, focused space with zero distractions.' },
   { num: '03', title: 'End & Delete', desc: 'Click "End Sprint". Every message, file, and trace of your session is permanently erased.' },
 ];
 
+// Color palette for social proof avatar circles in the hero section
 const avatarColors = ['#2E9E44', '#34C759', '#FFB347', '#FF5C5C', '#5E5CE6'];
 
+// Public marketing page — hero, features, how it works, CTA, and footer
 const Landing = () => {
   const navigate = useNavigate();
 
   return (
     <div className="min-h-screen bg-bg">
-      {/* Nav */}
+      {/* Nav — sticky top bar with logo, nav links, and auth buttons */}
       <nav className="sticky top-0 z-50 bg-bg/90 backdrop-blur-lg border-b border-border">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           <div className="flex items-center gap-10">
@@ -55,10 +65,12 @@ const Landing = () => {
         </div>
       </nav>
 
-      {/* Hero */}
+      {/* ═══════════════════════════════════════════════════
+          HERO SECTION
+          ═══════════════════════════════════════════════════ */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-20 pb-24 lg:pb-32">
         <div className="flex flex-col lg:flex-row items-center gap-16 lg:gap-24">
-          {/* Left */}
+          {/* Hero Left — headline, social proof badge, tagline, CTA buttons, avatar avatars */}
           <motion.div initial={{ opacity: 0, x: -30 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.6 }} className="flex-1 text-center lg:text-left">
             <div className="inline-flex items-center gap-2 bg-brand-badge text-brand text-xs font-semibold px-3.5 py-1.5 rounded-full mb-6">
               <Star size={14} fill="currentColor" />
@@ -98,23 +110,24 @@ const Landing = () => {
             </div>
           </motion.div>
 
-          {/* Right - Illustration */}
+          {/* Hero Right — animated illustration panel with a floating timer card mockup */}
           <motion.div initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.6, delay: 0.15 }} className="flex-1 max-w-md lg:max-w-none">
             <div className="relative w-full aspect-[4/3] bg-secondary rounded-hero border border-border shadow-soft flex items-center justify-center overflow-hidden">
-              {/* Subtle decorative dots */}
+              {/* Illustration background — subtle dot grid pattern */}
               <div className="absolute inset-0 opacity-[0.03]" style={{ backgroundImage: 'radial-gradient(circle, #2E9E44 1px, transparent 1px)', backgroundSize: '20px 20px' }}></div>
-              {/* Decorative shapes */}
+              {/* Illustration background — decorative abstract shapes */}
               <div className="absolute top-6 left-6 w-20 h-20 rounded-2xl bg-brand-light rotate-12"></div>
               <div className="absolute bottom-8 right-8 w-16 h-16 rounded-full bg-brand/10 -rotate-6"></div>
               <div className="absolute top-1/4 right-10 w-12 h-12 rounded-lg bg-brand-badge rotate-45"></div>
 
-              {/* Floating Timer Card */}
+              {/* ── Floating Timer Card ── */}
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.5, delay: 0.4 }}
                 className="relative z-10 bg-bg-card rounded-card p-6 shadow-lift border border-border w-56"
               >
+                {/* Card top row — live status indicator + LIVE badge */}
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center gap-2 text-sm font-semibold">
                     <div className="w-2 h-2 rounded-full bg-success animate-pulse"></div>
@@ -122,10 +135,14 @@ const Landing = () => {
                   </div>
                   <span className="badge-green text-[10px] tracking-wider uppercase">LIVE</span>
                 </div>
+
+                {/* Card center — countdown timer display */}
                 <div className="text-center mb-4">
                   <span className="text-4xl font-extrabold text-gray-900 tracking-widest">42:18</span>
                   <p className="text-xs text-gray-400 font-medium mt-1">Time remaining</p>
                 </div>
+
+                {/* Card bottom row — member count + participant avatars */}
                 <div className="flex items-center justify-between pt-4 border-t border-border">
                   <div className="flex items-center gap-2 text-sm text-gray-500">
                     <Users size={16} />
@@ -143,7 +160,10 @@ const Landing = () => {
         </div>
       </section>
 
-      {/* Features */}
+      {/* ═══════════════════════════════════════════════════
+          FEATURES SECTION
+          ═══════════════════════════════════════════════════ */}
+      {/* Features — 4-column grid of value propositions (ephemeral, distraction-free, real-time, secure) */}
       <section id="features" className="bg-secondary py-24">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <motion.div {...fadeUp()} className="text-center mb-16">
@@ -172,7 +192,10 @@ const Landing = () => {
         </div>
       </section>
 
-      {/* How It Works */}
+      {/* ═══════════════════════════════════════════════════
+          HOW IT WORKS SECTION
+          ═══════════════════════════════════════════════════ */}
+      {/* How It Works — 3-step horizontal timeline showing the sprint lifecycle */}
       <section id="how-it-works" className="py-24">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <motion.div {...fadeUp()} className="text-center mb-16">
@@ -205,7 +228,9 @@ const Landing = () => {
         </div>
       </section>
 
-      {/* CTA */}
+      {/* ═══════════════════════════════════════════════════
+          CTA SECTION
+          ═══════════════════════════════════════════════════ */}
       <section className="bg-secondary py-24">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <motion.div {...fadeUp()}>
@@ -225,7 +250,9 @@ const Landing = () => {
         </div>
       </section>
 
-      {/* Footer */}
+      {/* ═══════════════════════════════════════════════════
+          FOOTER
+          ═══════════════════════════════════════════════════ */}
       <footer className="border-t border-border py-12">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex flex-col md:flex-row items-center justify-between gap-6">

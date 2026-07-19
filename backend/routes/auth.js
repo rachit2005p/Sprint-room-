@@ -5,6 +5,8 @@ import { authMiddleware } from '../middleware/auth.js';
 
 const router = express.Router();
 
+// Middleware to check express-validator results and return 400 if any validation fails
+
 const handleValidationErrors = (req, res, next) => {
   import('express-validator').then(({ validationResult }) => {
     const errors = validationResult(req);
@@ -13,6 +15,7 @@ const handleValidationErrors = (req, res, next) => {
   });
 };
 
+// POST /signup — Register a new user with username, email, and password (public)
 router.post(
   '/signup',
   [
@@ -24,6 +27,7 @@ router.post(
   register
 );
 
+// POST /login — Authenticate user with email and password, returns JWT token (public)
 router.post(
   '/login',
   [
@@ -34,6 +38,7 @@ router.post(
   login
 );
 
+// GET /profile — Get the current authenticated user's profile (auth required)
 router.get('/profile', authMiddleware, getProfile);
 
 export default router;

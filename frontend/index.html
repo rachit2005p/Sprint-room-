@@ -1,13 +1,28 @@
 <!doctype html>
+<!-- ── HTML shell: stripped-down page that bootstraps the React SPA ── -->
 <html lang="en">
   <head>
+    <!-- Character encoding & responsive viewport -->
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>frontend</title>
+
+    <!-- Favicon (SVG for modern browsers) -->
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+
+    <!-- Page title — will be overwritten by React Helmet at runtime -->
+    <title>SprintRoom</title>
   </head>
   <body>
+    <!--
+      React mounts its entire component tree inside this <div>.
+      The #root element must exist before Vite injects the bundle.
+    -->
     <div id="root"></div>
+
+    <!--
+      Entry module loaded by Vite as an ES module.
+      Vite transforms imports, JSX, CSS, and assets automatically.
+    -->
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>

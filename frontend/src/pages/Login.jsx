@@ -4,38 +4,51 @@ import { useAuth } from '../context/AuthContext';
 import { motion } from 'framer-motion';
 import { Shield, Zap, Trash2, Users, ArrowRight, Star } from 'lucide-react';
 
+// Login/Signup page — split layout: left brand panel, right auth form.
+// The isSignup prop toggles between login and registration modes.
 const Login = ({ isSignup = false }) => {
   const [formData, setFormData] = useState({ username: '', email: '', password: '' });
   const [error, setError] = useState('');
   const { login, register } = useAuth();
   const navigate = useNavigate();
 
+  // Form submit — calls register or login API based on isSignup, navigates to dashboard on success
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
     try {
+      // Step 1 — determine action: register (with username) vs login (email + password only)
       if (isSignup) {
         await register(formData.username, formData.email, formData.password);
       } else {
         await login(formData.email, formData.password);
       }
+      // Step 2 — on success, redirect to the dashboard
       navigate('/');
     } catch (err) {
+      // Step 3 — extract the most specific error message available
+      // Priority: server msg field → validation errors array → timeout → network → generic
       const message =
+        // Preferred: the backend's top-level "msg" property
         err.response?.data?.msg ||
+        // Fallback: first item in a validation errors array
         err.response?.data?.errors?.[0]?.msg ||
+        // Network-specific: request timeout (Axios code ECONNABORTED)
         (err.code === 'ECONNABORTED'
           ? 'The server took too long to respond.'
+          // No response at all — server unreachable
           : !err.response
             ? 'Cannot reach the backend. Please start the backend server on port 5000.'
+            // Catch-all fallback
             : 'An error occurred');
+      // Step 4 — display the resolved message in the error banner
       setError(message);
     }
   };
 
   return (
     <div className="min-h-screen bg-bg flex">
-      {/* Left - Branding */}
+      {/* Left — brand panel with logo, tagline, feature highlights, and copyright (hidden on mobile) */}
       <div className="hidden lg:flex flex-1 bg-secondary p-16 xl:p-24 flex-col justify-between relative overflow-hidden">
         <div className="absolute inset-0 opacity-[0.03]" style={{ backgroundImage: 'radial-gradient(circle, #2E9E44 1px, transparent 1px)', backgroundSize: '20px 20px' }}></div>
         <div className="absolute -top-20 -right-20 w-64 h-64 rounded-full bg-brand-light pointer-events-none"></div>
@@ -87,7 +100,7 @@ const Login = ({ isSignup = false }) => {
         </div>
       </div>
 
-      {/* Right - Auth Form */}
+      {/* Right — auth form panel with logo, heading, error banner, and form inputs */}
       <div className="flex-1 flex items-center justify-center p-6 lg:p-12">
         <motion.div
           initial={{ opacity: 0, scale: 0.95 }}
@@ -103,6 +116,7 @@ const Login = ({ isSignup = false }) => {
             </p>
           </div>
 
+          {/* Error banner — shown when login/register API returns an error */}
           {error && (
             <div className="bg-red-50 border border-red-200 text-red-600 p-3.5 rounded-btn text-sm mb-6 text-center font-medium">
               {error}
@@ -110,6 +124,7 @@ const Login = ({ isSignup = false }) => {
           )}
 
           <form onSubmit={handleSubmit} className="space-y-4">
+            {/* Username field — shown only during signup, hidden for login */}
             {isSignup && (
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">Username</label>
@@ -124,6 +139,7 @@ const Login = ({ isSignup = false }) => {
               </div>
             )}
 
+            {/* Email field — required for both login and signup */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1.5">Email</label>
               <input
@@ -136,6 +152,7 @@ const Login = ({ isSignup = false }) => {
               />
             </div>
 
+            {/* Password field — required for both login and signup */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1.5">Password</label>
               <input
@@ -148,11 +165,13 @@ const Login = ({ isSignup = false }) => {
               />
             </div>
 
+            {/* Submit button — text changes based on login vs signup mode */}
             <button type="submit" className="btn-primary w-full py-3 gap-2 mt-2">
               {isSignup ? 'Create Account' : 'Sign In'} <ArrowRight size={18} />
             </button>
           </form>
 
+          {/* Toggle link — switches between "Sign in" and "Create account" modes */}
           <p className="text-center text-sm text-gray-400 mt-8">
             {isSignup ? 'Already have an account? ' : "Don't have an account? "}
             <Link to={isSignup ? '/login' : '/signup'} className="text-brand hover:text-brand-hover font-semibold transition-colors">

@@ -1,6 +1,11 @@
 import React, { useState } from 'react';
 import { Plus } from 'lucide-react';
 
+/**
+ * Tasks — Kanban-board-style page with three columns (Todo, In Progress, Done).
+ * Renders hardcoded sample tasks with assignee avatars. All state is local;
+ * this is a frontend-only UI prototype — no API calls or drag-and-drop.
+ */
 const initialTasks = [
   { id: 1, title: 'Design system audit', description: 'Review existing components and identify gaps in the design system.', status: 'todo', assignees: ['JD', 'AK', 'ML'] },
   { id: 2, title: 'API integration specs', description: 'Document all endpoints needed for the dashboard module.', status: 'todo', assignees: ['RK'] },
@@ -11,6 +16,10 @@ const initialTasks = [
   { id: 7, title: 'Database migration plan', description: 'Outline migration strategy for schema v2.', status: 'done', assignees: ['AT'] },
 ];
 
+/* Column definitions for the Kanban board:
+   - key:     status value matched against each task's `status` field
+   - label:   column header shown in the UI
+   - badge:   Tailwind class that colours the status pill (pink = todo, blue = progress, green = done) */
 const columns = [
   { key: 'todo', label: 'Todo', badge: 'badge-pink' },
   { key: 'in-progress', label: 'In Progress', badge: 'badge-blue' },
