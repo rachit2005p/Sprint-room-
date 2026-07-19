@@ -49,7 +49,8 @@ const findMessagesByRoomId = (roomId) => {
 export const createRoom = async (req, res, next) => {
   const { room_name, agenda, description, expires_in_minutes, password } = req.body;
   try {
-    const expires_at = expires_in_minutes ? new Date(Date.now() + expires_in_minutes * 60000) : null;
+    const mins = Math.max(5, Number(expires_in_minutes) || 5);
+    const expires_at = new Date(Date.now() + mins * 60000);
     
     let hashedPassword = null;
     let is_private = false;

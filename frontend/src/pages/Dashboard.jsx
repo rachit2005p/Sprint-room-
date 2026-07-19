@@ -1,19 +1,28 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Plus, Clock, Users, ChevronRight, Lock, Sparkles, X, ArrowRight } from 'lucide-react';
 import api from '../services/api';
-import { Plus, Users, Clock, Search, ArrowRight, Lock } from 'lucide-react';
-import { motion } from 'framer-motion';
 
 const Dashboard = () => {
-  const [rooms, setRooms] = useState([]);
-  const [search, setSearch] = useState('');
-  const [showCreateModal, setShowCreateModal] = useState(false);
-  const [newRoom, setNewRoom] = useState({ room_name: '', agenda: '', description: '', expires_in_minutes: 60, password: '' });
-  const [showPasswordModal, setShowPasswordModal] = useState(false);
-  const [joinPassword, setJoinPassword] = useState('');
-  const [selectedRoomId, setSelectedRoomId] = useState(null);
-  const [joinError, setJoinError] = useState('');
+  const { user } = useAuth();
   const navigate = useNavigate();
+  const [rooms, setRooms] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showJoinModal, setShowJoinModal] = useState(false);
+  const [joinRoomId, setJoinRoomId] = useState(null);
+  const [joinPassword, setJoinPassword] = useState('');
+  const [joinError, setJoinError] = useState('');
+
+  const [form, setForm] = useState({
+    room_name: '',
+    agenda: '',
+    description: '',
+    expires_in_minutes: '',
+    password: '',
+  });
 
   useEffect(() => {
     fetchRooms();
@@ -24,112 +33,141 @@ const Dashboard = () => {
       const res = await api.get('/rooms');
       setRooms(res.data);
     } catch (err) {
-      console.error(err);
+      console.error('Failed to fetch rooms:', err);
     }
+    setLoading(false);
   };
 
   const handleCreateRoom = async (e) => {
     e.preventDefault();
+    const payload = {
+      ...form,
+      expires_in_minutes: Math.max(5, Number(form.expires_in_minutes) || 5)
+    };
     try {
-      const res = await api.post('/rooms/create', newRoom);
+      const res = await api.post('/rooms/create', payload);
       setShowCreateModal(false);
+      setForm({ room_name: '', agenda: '', description: '', expires_in_minutes: '', password: '' });
       navigate(`/room/${res.data.id}`);
     } catch (err) {
-      console.error(err);
+      console.error('Create room error:', err);
     }
   };
 
-  const joinRoom = async (roomId, password = '') => {
-    try {
+  const handleJoinRoom = async (roomId, needsPassword = false) => {
+    if (needsPassword) {
+      setJoinRoomId(roomId);
+      setJoinPassword('');
       setJoinError('');
-      await api.post('/rooms/join', { room_id: roomId, password });
-      setShowPasswordModal(false);
+      setShowJoinModal(true);
+      return;
+    }
+    try {
+      await api.post('/rooms/join', { room_id: roomId });
       navigate(`/room/${roomId}`);
     } catch (err) {
       if (err.response?.data?.requires_password) {
-        setSelectedRoomId(roomId);
-        setShowPasswordModal(true);
+        setJoinRoomId(roomId);
+        setJoinPassword('');
+        setJoinError('');
+        setShowJoinModal(true);
       } else {
-        setJoinError(err.response?.data?.msg || 'Failed to join room');
-        console.error(err);
+        console.error('Join room error:', err);
       }
     }
   };
 
-  const filteredRooms = rooms.filter(r => r.room_name.toLowerCase().includes(search.toLowerCase()) || (r.agenda && r.agenda.toLowerCase().includes(search.toLowerCase())));
+  const handleJoinSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      await api.post('/rooms/join', { room_id: joinRoomId, password: joinPassword });
+      setShowJoinModal(false);
+      navigate(`/room/${joinRoomId}`);
+    } catch (err) {
+      setJoinError(err.response?.data?.msg || 'Failed to join room');
+    }
+  };
+
+  const formatTimeLeft = (expiresAt) => {
+    if (!expiresAt) return null;
+    const diff = new Date(expiresAt).getTime() - Date.now();
+    if (diff <= 0) return 'Ending';
+    const mins = Math.floor(diff / 60000);
+    const secs = Math.floor((diff % 60000) / 1000);
+    return `${mins}:${String(secs).padStart(2, '0')}`;
+  };
+
+  const cardBg = (i) => {
+    const colors = ['bg-brand-light', 'bg-secondary', 'bg-brand-badge', 'bg-secondary', 'bg-brand-light'];
+    return colors[i % colors.length];
+  };
 
   return (
-    <div className="space-y-10 relative z-10">
-      {/* Header section */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+    <div className="space-y-8">
+      {/* Header */}
+      <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-4xl font-extrabold bg-clip-text text-transparent bg-gradient-to-r from-white via-slate-200 to-slate-400">Active Sprints</h1>
-          <p className="text-slate-400 mt-2 font-medium">Join an existing room or create a new ephemeral space.</p>
+          <h1 className="section-title text-2xl">Dashboard</h1>
+          <p className="section-subtitle mt-1">Welcome back, {user?.username}</p>
         </div>
-        
-        <div className="flex flex-col sm:flex-row items-center gap-4 w-full md:w-auto">
-          <div className="relative w-full sm:w-auto">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-            <input 
-              type="text" 
-              placeholder="Search rooms..." 
-              className="input-field pl-12 w-full sm:w-64"
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-            />
-          </div>
-          <button onClick={() => setShowCreateModal(true)} className="btn-primary w-full sm:w-auto whitespace-nowrap shadow-glow-primary">
-            <Plus size={18} className="mr-2" /> New Sprint
-          </button>
-        </div>
+        <button onClick={() => setShowCreateModal(true)} className="btn-primary gap-2 text-sm">
+          <Plus size={18} /> New Sprint
+        </button>
       </div>
 
-      {/* Room Grid */}
-      {filteredRooms.length === 0 ? (
-        <div className="text-center py-24 glass-panel border border-white/5 relative overflow-hidden">
-          <div className="absolute inset-0 bg-gradient-to-b from-primary/5 to-transparent"></div>
-          <div className="w-20 h-20 bg-dark-800 border border-white/10 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-inner relative z-10">
-            <Users size={32} className="text-primary/70" />
+      {/* Sprint Cards */}
+      {loading ? (
+        <div className="text-center py-16 text-gray-400 text-sm">Loading rooms...</div>
+      ) : rooms.length === 0 ? (
+        <div className="text-center py-20">
+          <div className="w-16 h-16 rounded-2xl bg-brand-badge text-brand flex items-center justify-center mx-auto mb-5">
+            <Sparkles size={28} />
           </div>
-          <h3 className="text-2xl font-bold text-white mb-2 relative z-10">No active sprints</h3>
-          <p className="text-slate-400 relative z-10 max-w-sm mx-auto">Create a new sprint room to start collaborating with your team instantly.</p>
+          <h3 className="text-lg font-bold text-gray-900 mb-2">No active sprints</h3>
+          <p className="text-sm text-gray-400 mb-6 max-w-md mx-auto">
+            Create a new sprint room and invite your team to collaborate in an ephemeral workspace.
+          </p>
+          <button onClick={() => setShowCreateModal(true)} className="btn-primary gap-2">
+            <Plus size={18} /> Create Your First Sprint
+          </button>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-          {filteredRooms.map((room, idx) => (
-            <motion.div 
-              initial={{ opacity: 0, y: 20 }}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+          {rooms.map((room, idx) => (
+            <motion.div
+              key={room.id}
+              initial={{ opacity: 0, y: 16 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: idx * 0.05 }}
-              key={room.id} 
-              className="card group cursor-pointer flex flex-col h-full hover:-translate-y-1"
-              onClick={() => joinRoom(room.id)}
+              className={`card-hover ${cardBg(idx)} border-0 relative overflow-hidden group cursor-pointer`}
+              onClick={() => handleJoinRoom(room.id, room.is_private)}
             >
-              <div className="absolute inset-0 bg-gradient-to-br from-primary/0 via-primary/0 to-primary/5 group-hover:to-primary/10 transition-colors"></div>
-              <div className="flex justify-between items-start mb-6 relative z-10">
-                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-primary/20 to-accent/20 border border-white/10 text-white flex items-center justify-center font-bold text-xl shadow-inner group-hover:shadow-glow-primary transition-all">
-                  {room.room_name.charAt(0).toUpperCase()}
+              {room.is_private && (
+                <div className="absolute top-3 right-3 bg-white/70 backdrop-blur text-gray-500 text-xs font-bold px-2 py-1 rounded-full flex items-center gap-1 shadow-sm">
+                  <Lock size={11} /> Private
                 </div>
-                <div className="flex items-center text-[11px] font-bold tracking-wider text-slate-300 bg-dark-800/80 border border-white/5 px-2.5 py-1.5 rounded-lg shadow-sm">
-                  <Clock size={12} className="mr-1.5 text-primary" />
-                  {room.expires_at ? new Date(room.expires_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : 'NO LIMIT'}
-                </div>
-              </div>
-              
-              <h3 className="text-xl font-bold mb-1.5 group-hover:text-primary transition-colors flex items-center gap-2 relative z-10">
-                {room.room_name}
-                {room.is_private && <Lock size={14} className="text-primary/70" />}
-              </h3>
-              <p className="text-slate-400 text-sm mb-6 line-clamp-2 relative z-10 leading-relaxed">{room.agenda || 'No agenda set for this sprint.'}</p>
-              
-              <div className="mt-auto pt-4 border-t border-white/5 flex items-center justify-between relative z-10">
+              )}
+              <h3 className="font-bold text-gray-900 text-base mb-1.5 pr-16">{room.room_name}</h3>
+              {room.agenda && (
+                <p className="text-xs text-gray-500 mb-4 line-clamp-2">{room.agenda}</p>
+              )}
+              <div className="flex items-center justify-between mt-auto">
                 <div className="flex items-center gap-3">
-                  <div className="flex -space-x-2">
-                    <div className="w-7 h-7 rounded-full bg-dark-700 flex items-center justify-center text-[10px] font-bold border-2 border-dark-card shadow-sm text-slate-300">{room.creator_name.charAt(0).toUpperCase()}</div>
+                  {formatTimeLeft(room.expires_at) && (
+                    <div className="flex items-center gap-1 text-xs text-gray-500 font-medium">
+                      <Clock size={13} />
+                      {formatTimeLeft(room.expires_at)}
+                    </div>
+                  )}
+                  <div className="flex items-center gap-1 text-xs text-gray-400">
+                    <Users size={13} />
+                    {room.participant_count || 0}
                   </div>
-                  <span className="text-xs font-semibold text-slate-400">{room.participant_count} ACTIVE</span>
                 </div>
-                <div className="w-8 h-8 rounded-full bg-primary/10 text-primary flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all -translate-x-2 group-hover:translate-x-0">
+                <div
+                  className="w-8 h-8 rounded-lg bg-white/80 text-brand flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-sm"
+                  onClick={(e) => { e.stopPropagation(); handleJoinRoom(room.id, room.is_private); }}
+                >
                   <ArrowRight size={16} />
                 </div>
               </div>
@@ -138,116 +176,108 @@ const Dashboard = () => {
         </div>
       )}
 
+      {/* Recent Rooms */}
+      {rooms.length > 0 && (
+        <div>
+          <h2 className="section-title mb-4">All Active Rooms</h2>
+          <div className="card p-0 overflow-hidden">
+            {rooms.slice(0, 10).map((room) => (
+              <div
+                key={room.id}
+                className="flex items-center gap-4 px-5 py-4 hover:bg-secondary cursor-pointer transition-colors border-b border-border last:border-b-0"
+                onClick={() => handleJoinRoom(room.id, room.is_private)}
+              >
+                <div className="w-9 h-9 rounded-full bg-brand-badge flex items-center justify-center shrink-0">
+                  {room.is_private ? <Lock size={15} className="text-brand" /> : <Users size={15} className="text-brand" />}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-gray-900 truncate">{room.room_name}</p>
+                  <p className="text-xs text-gray-400">
+                    {room.creator_name} · {room.participant_count} member{room.participant_count !== 1 ? 's' : ''}
+                    {formatTimeLeft(room.expires_at) ? ` · ${formatTimeLeft(room.expires_at)} left` : ''}
+                  </p>
+                </div>
+                <ChevronRight size={16} className="text-gray-300 shrink-0" />
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Create Room Modal */}
-      {showCreateModal && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <motion.div 
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="bg-dark-card border border-slate-700 rounded-2xl p-6 w-full max-w-md shadow-2xl"
-          >
-            <h2 className="text-2xl font-bold mb-4">Create Sprint Room</h2>
-            <form onSubmit={handleCreateRoom} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-slate-300 mb-1">Room Name *</label>
-                <input 
-                  type="text" 
-                  required 
-                  className="input-field" 
-                  placeholder="e.g. Q3 Planning"
-                  value={newRoom.room_name}
-                  onChange={e => setNewRoom({...newRoom, room_name: e.target.value})}
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-300 mb-1">Agenda</label>
-                <input 
-                  type="text" 
-                  className="input-field" 
-                  placeholder="What is the goal?"
-                  value={newRoom.agenda}
-                  onChange={e => setNewRoom({...newRoom, agenda: e.target.value})}
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-300 mb-1">Description</label>
-                <textarea 
-                  className="input-field min-h-[80px]" 
-                  placeholder="Brief context for the sprint..."
-                  value={newRoom.description}
-                  onChange={e => setNewRoom({...newRoom, description: e.target.value})}
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-300 mb-1">Expires in (minutes)</label>
-                <input 
-                  type="number" 
-                  className="input-field" 
-                  value={newRoom.expires_in_minutes}
-                  onChange={e => setNewRoom({...newRoom, expires_in_minutes: e.target.value})}
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-300 mb-1">Room Password (Optional)</label>
-                <input 
-                  type="password" 
-                  className="input-field" 
-                  placeholder="Leave blank for public room"
-                  value={newRoom.password}
-                  onChange={e => setNewRoom({...newRoom, password: e.target.value})}
-                />
-              </div>
-              
-              <div className="flex gap-3 pt-4">
-                <button type="button" onClick={() => setShowCreateModal(false)} className="flex-1 py-2 rounded-lg border border-slate-700 text-slate-300 hover:bg-slate-800 transition-colors">
-                  Cancel
-                </button>
-                <button type="submit" className="flex-1 btn-primary">
-                  Start Sprint
+      <AnimatePresence>
+        {showCreateModal && (
+          <div className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="bg-bg-card rounded-card border border-border p-6 w-full max-w-lg shadow-lift"
+            >
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-xl font-bold text-gray-900">Create Sprint Room</h2>
+                <button onClick={() => setShowCreateModal(false)} className="p-1.5 rounded-btn text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-all">
+                  <X size={18} />
                 </button>
               </div>
-            </form>
-          </motion.div>
-        </div>
-      )}
+
+              <form onSubmit={handleCreateRoom} className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">Room Name *</label>
+                  <input className="input-field" placeholder="Sprint Planning Q3" required value={form.room_name} onChange={e => setForm({...form, room_name: e.target.value})} />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">Agenda</label>
+                  <input className="input-field" placeholder="What's this sprint about?" value={form.agenda} onChange={e => setForm({...form, agenda: e.target.value})} />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">Description</label>
+                  <textarea className="input-field min-h-[80px]" placeholder="Add more details..." value={form.description} onChange={e => setForm({...form, description: e.target.value})} />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1.5">Duration (minutes) *</label>
+                    <input type="number" min="5" className="input-field" placeholder="30" value={form.expires_in_minutes} onChange={e => setForm({...form, expires_in_minutes: e.target.value})} />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1.5">Password (optional)</label>
+                    <input type="text" className="input-field" placeholder="Make it private" value={form.password} onChange={e => setForm({...form, password: e.target.value})} />
+                  </div>
+                </div>
+                <button type="submit" className="btn-primary w-full py-3 mt-2 gap-2">
+                  Create Sprint <ArrowRight size={18} />
+                </button>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
       {/* Join Password Modal */}
-      {showPasswordModal && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <motion.div 
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="bg-dark-card border border-slate-700 rounded-2xl p-6 w-full max-w-sm shadow-2xl"
-          >
-            <h2 className="text-xl font-bold mb-4 flex items-center gap-2"><Lock size={20} /> Private Room</h2>
-            <p className="text-slate-400 text-sm mb-4">This room requires a password to join.</p>
-            
-            {joinError && (
-              <div className="bg-red-500/10 text-red-400 p-2 rounded-lg text-sm mb-4">
-                {joinError}
+      <AnimatePresence>
+        {showJoinModal && (
+          <div className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="bg-bg-card rounded-card border border-border p-6 w-full max-w-sm shadow-lift text-center"
+            >
+              <div className="w-12 h-12 rounded-full bg-brand-badge text-brand flex items-center justify-center mx-auto mb-4">
+                <Lock size={22} />
               </div>
-            )}
-            
-            <form onSubmit={(e) => { e.preventDefault(); joinRoom(selectedRoomId, joinPassword); }}>
-              <input 
-                type="password" 
-                required 
-                className="input-field mb-4" 
-                placeholder="Enter password..."
-                value={joinPassword}
-                onChange={e => setJoinPassword(e.target.value)}
-              />
-              <div className="flex gap-3">
-                <button type="button" onClick={() => { setShowPasswordModal(false); setJoinError(''); setJoinPassword(''); }} className="flex-1 py-2 rounded-lg border border-slate-700 text-slate-300 hover:bg-slate-800 transition-colors">
-                  Cancel
-                </button>
-                <button type="submit" className="flex-1 btn-primary">
-                  Join Room
-                </button>
-              </div>
-            </form>
-          </motion.div>
-        </div>
-      )}
+              <h2 className="text-lg font-bold text-gray-900 mb-2">Password Required</h2>
+              <p className="text-sm text-gray-400 mb-6">This room is private. Enter the password to join.</p>
+
+              <form onSubmit={handleJoinSubmit} className="space-y-4">
+                <input type="text" className="input-field text-center" placeholder="Enter room password" value={joinPassword} onChange={e => setJoinPassword(e.target.value)} autoFocus />
+                {joinError && <p className="text-xs text-red-500">{joinError}</p>}
+                <button type="submit" className="btn-primary w-full py-2.5">Join Room</button>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

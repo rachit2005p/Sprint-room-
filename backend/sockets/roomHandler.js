@@ -23,7 +23,6 @@ export const setupSocketHandlers = (io) => {
         onlineUsers[roomId].push({ userId: user.id, username: user.username, socketId: socket.id });
       }
 
-      socket.to(roomId).emit('user_joined', { user, onlineUsers: onlineUsers[roomId] });
       io.to(roomId).emit('room_users_update', onlineUsers[roomId]);
       
       console.log(`User ${user.username} joined room ${roomId}`);
@@ -76,6 +75,65 @@ export const setupSocketHandlers = (io) => {
       }
     });
 
+    // Media Share Request/Approve/Deny (images, audio — non-admin must ask admin)
+    socket.on('media_share_request', ({ roomId, senderId, username, messageType, fileData, fileName, fileMime, audioData }) => {
+      socket.to(roomId).emit('media_share_requested', { senderId, username, messageType, fileData, fileName, fileMime, audioData, requesterSocketId: socket.id });
+    });
+
+    socket.on('media_share_approve', async ({ roomId, requesterSocketId, senderId, username, messageType, fileData, fileName, fileMime, audioData }) => {
+      try {
+        const msg = await createMessage({
+          room_id: roomId,
+          sender_id: senderId,
+          message: messageType === 'audio' ? 'Voice message' : `Sent a ${messageType}: ${fileName || 'media'}`,
+          message_type: messageType,
+          audio_data: audioData,
+          file_data: fileData,
+          file_name: fileName,
+          file_mime: fileMime
+        });
+
+        const savedMessage = {
+          id: msg._id,
+          room_id: roomId,
+          sender_id: senderId,
+          message: msg.message,
+          message_type: msg.message_type,
+          audio_data: msg.audio_data,
+          file_data: msg.file_data,
+          file_name: msg.file_name,
+          file_mime: msg.file_mime,
+          username: username,
+          avatar_url: null,
+          created_at: msg.createdAt
+        };
+
+        io.to(roomId).emit('receive_message', savedMessage);
+        io.to(requesterSocketId).emit('media_share_approved');
+      } catch (err) {
+        console.error('media_share_approve error:', err);
+      }
+    });
+
+    socket.on('media_share_deny', ({ roomId, requesterSocketId }) => {
+      io.to(requesterSocketId).emit('media_share_denied');
+    });
+
+    socket.on('delete_message', async ({ roomId, messageId, senderId }) => {
+      try {
+        if (isMemoryDb()) {
+          const deleted = await memoryStore.deleteMessageById(messageId, senderId);
+          if (!deleted) return;
+        } else {
+          const msg = await Message.findOne({ _id: messageId, sender_id: senderId });
+          if (!msg) return;
+          await Message.findByIdAndDelete(messageId);
+        }
+        io.to(roomId).emit('message_deleted', { messageId });
+      } catch (err) {
+        console.error('Delete message error:', err);
+      }
+    });
 
     socket.on('typing', ({ roomId, username }) => {
       socket.to(roomId).emit('typing', { username });
@@ -129,7 +187,14 @@ export const setupSocketHandlers = (io) => {
         const minutes = Number(delta_minutes);
         if (!Number.isFinite(minutes) || minutes === 0) return;
 
-        const newExpires = new Date(baseTime.getTime() + minutes * 60000);
+        // Cap delta to ±12 hours per adjustment (prevent infinite time exploits)
+        const maxDelta = 12 * 60; // 12 hours in minutes
+        const clampedMinutes = Math.min(Math.max(minutes, -maxDelta), maxDelta);
+        let newExpires = new Date(baseTime.getTime() + clampedMinutes * 60000);
+
+        // Cap total timer to max 24 hours from now (prevent infinite room)
+        const maxExpires = new Date(now.getTime() + 24 * 60 * 60000);
+        if (newExpires > maxExpires) newExpires = maxExpires;
 
         if (newExpires <= now) {
           // If timer is decreased to zero or less, end the room immediately!
@@ -224,6 +289,19 @@ export const setupSocketHandlers = (io) => {
       io.to(roomId).emit('presentation_image_added', { fileName, fileData });
     });
 
+    // Screen Sharing Permission Flow
+    socket.on('screen_share_request', ({ roomId, userId, username }) => {
+      socket.to(roomId).emit('screen_share_requested', { userId, username, requesterSocketId: socket.id });
+    });
+
+    socket.on('screen_share_approve', ({ roomId, requesterSocketId }) => {
+      io.to(requesterSocketId).emit('screen_share_approved');
+    });
+
+    socket.on('screen_share_deny', ({ roomId, requesterSocketId }) => {
+      io.to(requesterSocketId).emit('screen_share_denied');
+    });
+
     // Screen Sharing Events (WebRTC signaling)
     socket.on('screen_share_start', ({ roomId, userId, username }) => {
       socket.to(roomId).emit('screen_share_started', { userId, username });
@@ -252,7 +330,6 @@ export const setupSocketHandlers = (io) => {
         onlineUsers[roomId] = onlineUsers[roomId].filter(u => u.socketId !== socket.id);
         
         if (onlineUsers[roomId].length < initialLength) {
-          io.to(roomId).emit('user_left', { socketId: socket.id });
           io.to(roomId).emit('room_users_update', onlineUsers[roomId]);
         }
         

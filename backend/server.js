@@ -12,8 +12,6 @@ import roomRoutes from './routes/rooms.js';
 import { setupSocketHandlers } from './sockets/roomHandler.js';
 import { memoryStore } from './services/memoryStore.js';
 
-dotenv.config();
-
 // Connect to MongoDB
 await connectDB();
 
@@ -23,7 +21,8 @@ const io = new Server(server, {
   cors: {
     origin: '*',
     methods: ['GET', 'POST', 'DELETE']
-  }
+  },
+  maxHttpBufferSize: 50 * 1024 * 1024
 });
 
 app.use(helmet());

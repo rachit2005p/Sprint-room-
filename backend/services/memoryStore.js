@@ -128,6 +128,15 @@ export const memoryStore = {
   },
 
 
+  async deleteMessageById(id, senderId) {
+    const index = messages.findIndex((m) => m._id === toId(id) && m.sender_id === toId(senderId));
+    if (index !== -1) {
+      messages.splice(index, 1);
+      return true;
+    }
+    return false;
+  },
+
   async getMessagesByRoomId(roomId) {
     return messages
       .filter((message) => message.room_id === toId(roomId))
